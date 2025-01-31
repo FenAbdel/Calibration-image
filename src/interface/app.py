@@ -8,7 +8,7 @@ app = Flask(__name__)
 # Configure your phone's IP Webcam settings
 PHONE_IP = "172.20.10.3"  # Replace with your phone's IP address
 CAPTURE_URL = f"http://{PHONE_IP}:8080/photo.jpg"  # URL to capture photo
-SAVE_DIR = "./phone_photos"  # Directory to save the photos
+SAVE_DIR = "../../calibration_image/compressed_images"  # Directory to save the photos
 
 def capture_photo():
     """Capture a photo from the phone's camera."""
