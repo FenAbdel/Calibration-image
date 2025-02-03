@@ -40,12 +40,12 @@ class CalibrationFrame(tk.Frame):
 
         tk.Label(self, text="Square Size (mm):").grid(row=1, column=0, padx=5, pady=5, sticky="e")
         self.square_size_entry = tk.Entry(self)
-        self.square_size_entry.insert(0, "25.0")
+        self.square_size_entry.insert(0, "30.0")
         self.square_size_entry.grid(row=1, column=1, padx=5, pady=5)
 
         tk.Label(self, text="Pattern Size (e.g. 9,6):").grid(row=2, column=0, padx=5, pady=5, sticky="e")
         self.pattern_size_entry = tk.Entry(self)
-        self.pattern_size_entry.insert(0, "9,6")
+        self.pattern_size_entry.insert(0, "4,4")
         self.pattern_size_entry.grid(row=2, column=1, padx=5, pady=5)
 
         self.select_calib_btn = tk.Button(self, text="Select Calibration Images", command=self.select_calib_images)
