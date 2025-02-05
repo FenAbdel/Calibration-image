@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capture Photo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        #video, #canvas {
+            width: 100%;
+            max-width: 640px;
+            margin-bottom: 20px;
+        }
+        #controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            margin: 0 10px;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 20px;
+            font-style: italic;
+            color: #666;
+        }
+        .error {
+            color: #ff0000;
+            margin: 10px 0;
+        }
+        .info {
+            color: #0066cc;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Capture Photo</h1>
+    
+    <div id="browserInfo" class="info"></div>
+    <div id="error" class="error"></div>
+    
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display: none;"></canvas>
+    
+    <div id="controls">
+        <button id="startCamera">Démarrer la caméra</button>
+        <button id="capture" disabled>Prendre une photo</button>
+    </div>
+    
+    <div id="status"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startButton = document.getElementById('startCamera');
+        const captureButton = document.getElementById('capture');
+        const statusDiv = document.getElementById('status');
+        const errorDiv = document.getElementById('error');
+        const browserInfoDiv = document.getElementById('browserInfo');
+        let stream = null;
+
+        // Afficher les informations sur le navigateur
+        browserInfoDiv.textContent = `Navigateur: ${navigator.userAgent}`;
+
+        // Vérifier si la caméra est supportée
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            errorDiv.textContent = 'Votre navigateur ne supporte pas l\'accès à la caméra. Veuillez utiliser un navigateur récent comme Chrome ou Firefox.';
+            startButton.disabled = true;
+        }
+
+        startButton.addEventListener('click', async () => {
+            try {
+                errorDiv.textContent = '';
+                statusDiv.textContent = 'Demande d\'accès à la caméra...';
+                
+                const constraints = {
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+                
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                startButton.disabled = true;
+                captureButton.disabled = false;
+                statusDiv.textContent = 'Caméra activée';
+                
+                // Afficher les détails de la caméra
+                const tracks = stream.getVideoTracks();
+                if (tracks.length > 0) {
+                    const settings = tracks[0].getSettings();
+                    statusDiv.textContent += `\nRésolution: ${settings.width}x${settings.height}`;
+                }
+            } catch (err) {
+                console.error('Erreur:', err);
+                errorDiv.textContent = `Erreur lors de l'activation de la caméra: ${err.message}`;
+                if (err.name === 'NotAllowedError') {
+                    errorDiv.textContent += '\nVeuillez autoriser l\'accès à la caméra dans les paramètres de votre navigateur.';
+                } else if (err.name === 'NotFoundError') {
+                    errorDiv.textContent += '\nAucune caméra trouvée sur votre appareil.';
+                }
+            }
+        });
+
+        captureButton.addEventListener('click', () => {
+            errorDiv.textContent = '';
+            statusDiv.textContent = 'Capture en cours...';
+            
+            try {
+                // Configurer le canvas
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const context = canvas.getContext('2d');
+                
+                // Dessiner l'image de la vidéo sur le canvas
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Convertir en base64
+                const imageData = canvas.toDataURL('image/jpeg');
+                
+                // Envoyer au serveur
+                fetch('/capture', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ image: imageData })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        statusDiv.textContent = `Photo sauvegardée: ${data.filename}`;
+                    } else {
+                        errorDiv.textContent = `Erreur: ${data.error}`;
+                    }
+                })
+                .catch(error => {
+                    errorDiv.textContent = `Erreur lors de l'envoi: ${error}`;
+                });
+            } catch (err) {
+                errorDiv.textContent = `Erreur lors de la capture: ${err.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
