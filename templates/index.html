@@ -4,66 +4,67 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Capture Photo</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            text-align: center;
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
+        
+        .capture-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .capture-btn:not(:disabled):hover {
+            transform: scale(1.05);
+        }
+        
+        .capture-btn:active {
+            transform: scale(0.95);
+        }
+        
         #video, #canvas {
-            width: 100%;
-            max-width: 640px;
-            margin-bottom: 20px;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            background-color: #f8f9fa;
         }
-        #controls {
-            margin: 20px 0;
+        
+        .status-animation {
+            animation: pulse 2s infinite;
         }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            margin: 0 10px;
-        }
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        #status {
-            margin-top: 20px;
-            font-style: italic;
-            color: #666;
-        }
-        .error {
-            color: #ff0000;
-            margin: 10px 0;
-        }
-        .info {
-            color: #0066cc;
-            margin: 10px 0;
+        
+        .gradient-background {
+            background: linear-gradient(135deg, #f6f8fc 0%, #ffffff 100%);
         }
     </style>
 </head>
-<body>
-    <h1>Capture Photo</h1>
-    
-    <div id="browserInfo" class="info"></div>
-    <div id="error" class="error"></div>
-    
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas" style="display: none;"></canvas>
-    
-    <div id="controls">
-        <button id="startCamera">Démarrer la caméra</button>
-        <button id="capture" disabled>Prendre une photo</button>
+<body class="gradient-background min-h-screen">
+    <div class="max-w-4xl mx-auto p-6">
+        <h1 class="text-4xl font-bold text-gray-800 mb-8 text-center">Capture Photo</h1>
+        
+        <div id="browserInfo" class="text-sm text-gray-600 mb-4 text-center"></div>
+        <div id="error" class="text-red-500 font-medium mb-4 text-center"></div>
+        
+        <div class="relative">
+            <video id="video" class="w-full max-w-2xl mx-auto mb-6" autoplay playsinline></video>
+            <canvas id="canvas" class="hidden"></canvas>
+        </div>
+        
+        <div id="controls" class="flex justify-center gap-4 mb-6">
+            <button id="startCamera" 
+                    class="capture-btn bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all">
+                Démarrer la caméra
+            </button>
+            <button id="capture" 
+                    disabled 
+                    class="capture-btn bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                Prendre une photo
+            </button>
+        </div>
+        
+        <div id="status" class="text-gray-700 italic text-center"></div>
     </div>
-    
-    <div id="status"></div>
 
     <script>
         const video = document.getElementById('video');
@@ -75,10 +76,8 @@
         const browserInfoDiv = document.getElementById('browserInfo');
         let stream = null;
 
-        // Afficher les informations sur le navigateur
         browserInfoDiv.textContent = `Navigateur: ${navigator.userAgent}`;
 
-        // Vérifier si la caméra est supportée
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             errorDiv.textContent = 'Votre navigateur ne supporte pas l\'accès à la caméra. Veuillez utiliser un navigateur récent comme Chrome ou Firefox.';
             startButton.disabled = true;
@@ -88,6 +87,7 @@
             try {
                 errorDiv.textContent = '';
                 statusDiv.textContent = 'Demande d\'accès à la caméra...';
+                statusDiv.classList.add('status-animation');
                 
                 const constraints = {
                     video: {
@@ -102,8 +102,8 @@
                 startButton.disabled = true;
                 captureButton.disabled = false;
                 statusDiv.textContent = 'Caméra activée';
+                statusDiv.classList.remove('status-animation');
                 
-                // Afficher les détails de la caméra
                 const tracks = stream.getVideoTracks();
                 if (tracks.length > 0) {
                     const settings = tracks[0].getSettings();
@@ -117,26 +117,24 @@
                 } else if (err.name === 'NotFoundError') {
                     errorDiv.textContent += '\nAucune caméra trouvée sur votre appareil.';
                 }
+                statusDiv.classList.remove('status-animation');
             }
         });
 
         captureButton.addEventListener('click', () => {
             errorDiv.textContent = '';
             statusDiv.textContent = 'Capture en cours...';
+            statusDiv.classList.add('status-animation');
             
             try {
-                // Configurer le canvas
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 const context = canvas.getContext('2d');
                 
-                // Dessiner l'image de la vidéo sur le canvas
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
                 
-                // Convertir en base64
                 const imageData = canvas.toDataURL('image/jpeg');
                 
-                // Envoyer au serveur
                 fetch('/capture', {
                     method: 'POST',
                     headers: {
@@ -151,12 +149,15 @@
                     } else {
                         errorDiv.textContent = `Erreur: ${data.error}`;
                     }
+                    statusDiv.classList.remove('status-animation');
                 })
                 .catch(error => {
                     errorDiv.textContent = `Erreur lors de l'envoi: ${error}`;
+                    statusDiv.classList.remove('status-animation');
                 });
             } catch (err) {
                 errorDiv.textContent = `Erreur lors de la capture: ${err.message}`;
+                statusDiv.classList.remove('status-animation');
             }
         });
     </script>
