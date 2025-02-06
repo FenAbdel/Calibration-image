@@ -188,7 +188,11 @@ class MapFrame(tb.Frame):
         if not filepath:
             return
         try:
-            np.savetxt(filepath, self.last_world_coords, fmt="%.6f")
+            # Convert the entire matrix to a string without truncation.
+            # np.array2string with threshold=np.inf ensures that all values are printed.
+            array_str = np.array2string(self.last_world_coords, threshold=np.inf, separator=', ')
+            with open(filepath, 'w') as f:
+                f.write(array_str)
             messagebox.showinfo("Export Successful", f"Coordinate matrix exported to:\n{filepath}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to export matrix: {e}")
