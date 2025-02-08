@@ -1,46 +1,116 @@
 # src/gui/coordinates_frame.py
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import ttkbootstrap as tb
+from ttkbootstrap.constants import *
+import tkinter as tk
+from tkinter import filedialog, messagebox
 
 from calibration_db import load_calibrations
 from real_coordinates import CoordinateTransformer  # Your existing coordinate transformation code
 
-class CoordinatesFrame(tk.Frame):
+class CoordinatesFrame(tb.Frame):
     def __init__(self, master):
-        super().__init__(master)
-        self.use_existing_var = tk.StringVar(value="yes")
-        tk.Label(self, text="Use Existing Calibration:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        tk.Radiobutton(self, text="Yes", variable=self.use_existing_var, value="yes", command=self.update_camera_choices).grid(row=0, column=1)
-        tk.Radiobutton(self, text="No (Calibrate New)", variable=self.use_existing_var, value="no", command=self.update_camera_choices).grid(row=0, column=2)
+        super().__init__(master, padding=20)
+        self.grid(sticky="nsew")
+        self.columnconfigure(0, weight=1)
 
-        tk.Label(self, text="Camera Name:").grid(row=1, column=0, padx=5, pady=5, sticky="e")
-        self.camera_choice = ttk.Combobox(self, values=[])
-        self.camera_choice.grid(row=1, column=1, columnspan=2, padx=5, pady=5)
+        # --------------------------------------------------
+        # 1. Calibration Options Section (Labelframe)
+        # --------------------------------------------------
+        calib_frame = tb.Labelframe(self, text="Calibration Options", bootstyle="info")
+        calib_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
+        calib_frame.columnconfigure(1, weight=1)
+
+        self.use_existing_var = tk.StringVar(value="yes")
+        tb.Label(calib_frame, text="Use Existing Calibration:", font=("Segoe UI", 12))\
+            .grid(row=0, column=0, sticky=W, padx=5, pady=5)
+        tb.Radiobutton(
+            calib_frame,
+            text="Yes",
+            variable=self.use_existing_var,
+            value="yes",
+            command=self.update_camera_choices,
+            bootstyle="success"  # Removed '-round'
+        ).grid(row=0, column=1, padx=5, pady=5)
+        tb.Radiobutton(
+            calib_frame,
+            text="No (Calibrate New)",
+            variable=self.use_existing_var,
+            value="no",
+            command=self.update_camera_choices,
+            bootstyle="danger"  # Removed '-round'
+        ).grid(row=0, column=2, padx=5, pady=5)
+
+        tb.Label(calib_frame, text="Camera Name:", font=("Segoe UI", 12))\
+            .grid(row=1, column=0, sticky=E, padx=5, pady=5)
+        self.camera_choice = tb.Combobox(calib_frame, values=[], font=("Segoe UI", 12))
+        self.camera_choice.grid(row=1, column=1, columnspan=2, sticky="ew", padx=5, pady=5)
         self.update_camera_choices()
 
-        self.select_test_btn = tk.Button(self, text="Select Test Image", command=self.select_test_image)
-        self.select_test_btn.grid(row=2, column=0, columnspan=3, pady=5)
+        # --------------------------------------------------
+        # 2. Test Image Selection Section
+        # --------------------------------------------------
+        image_frame = tb.Labelframe(self, text="Test Image", bootstyle="info")
+        image_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=10)
+        self.select_test_btn = tb.Button(
+            image_frame,
+            text="Select Test Image",
+            command=self.select_test_image,
+            bootstyle="primary"
+        )
+        self.select_test_btn.grid(row=0, column=0, padx=5, pady=5)
 
-        tk.Label(self, text="Pixel Selection Mode:").grid(row=3, column=0, padx=5, pady=5, sticky="w")
+        # --------------------------------------------------
+        # 3. Pixel Selection Mode Section
+        # --------------------------------------------------
+        pixel_frame = tb.Labelframe(self, text="Pixel Selection", bootstyle="info")
+        pixel_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
+        tb.Label(pixel_frame, text="Pixel Selection Mode:", font=("Segoe UI", 12))\
+            .grid(row=0, column=0, sticky=W, padx=5, pady=5)
         self.pixel_mode_var = tk.StringVar(value="manual")
-        tk.Radiobutton(self, text="Manual Entry", variable=self.pixel_mode_var, value="manual", command=self.toggle_manual_entries).grid(row=3, column=1, padx=5, pady=5)
-        tk.Radiobutton(self, text="Click on Image", variable=self.pixel_mode_var, value="click", command=self.toggle_manual_entries).grid(row=3, column=2, padx=5, pady=5)
+        tb.Radiobutton(
+            pixel_frame,
+            text="Manual Entry",
+            variable=self.pixel_mode_var,
+            value="manual",
+            command=self.toggle_manual_entries,
+            bootstyle="success"  # Changed bootstyle
+        ).grid(row=0, column=1, padx=5, pady=5)
+        tb.Radiobutton(
+            pixel_frame,
+            text="Click on Image",
+            variable=self.pixel_mode_var,
+            value="click",
+            command=self.toggle_manual_entries,
+            bootstyle="primary"  # Changed bootstyle
+        ).grid(row=0, column=2, padx=5, pady=5)
 
-        self.manual_frame = tk.Frame(self)
-        tk.Label(self.manual_frame, text="Pixel X:").grid(row=0, column=0, padx=5, pady=5)
-        self.pixel_x_entry = tk.Entry(self.manual_frame, width=5)
+        self.manual_frame = tb.Frame(pixel_frame)
+        self.manual_frame.grid(row=1, column=0, columnspan=3, pady=5)
+        tb.Label(self.manual_frame, text="Pixel X:", font=("Segoe UI", 12))\
+            .grid(row=0, column=0, padx=5, pady=5)
+        self.pixel_x_entry = tb.Entry(self.manual_frame, width=5, font=("Segoe UI", 12))
         self.pixel_x_entry.grid(row=0, column=1, padx=5, pady=5)
-        tk.Label(self.manual_frame, text="Pixel Y:").grid(row=0, column=2, padx=5, pady=5)
-        self.pixel_y_entry = tk.Entry(self.manual_frame, width=5)
+        tb.Label(self.manual_frame, text="Pixel Y:", font=("Segoe UI", 12))\
+            .grid(row=0, column=2, padx=5, pady=5)
+        self.pixel_y_entry = tb.Entry(self.manual_frame, width=5, font=("Segoe UI", 12))
         self.pixel_y_entry.grid(row=0, column=3, padx=5, pady=5)
-        self.manual_frame.grid(row=4, column=0, columnspan=3, pady=5)
 
-        self.calc_coords_btn = tk.Button(self, text="Calculate Coordinates", command=self.calculate_coordinates)
-        self.calc_coords_btn.grid(row=5, column=0, columnspan=3, pady=5)
+        # --------------------------------------------------
+        # 4. Calculate Coordinates Button
+        # --------------------------------------------------
+        self.calc_coords_btn = tb.Button(
+            self,
+            text="Calculate Coordinates",
+            command=self.calculate_coordinates,
+            bootstyle="success"
+        )
+        self.calc_coords_btn.grid(row=3, column=0, sticky="ew", padx=10, pady=10)
 
+        # Internal state variable for test image
         self.test_image_path = None
 
     def update_camera_choices(self):
@@ -123,11 +193,21 @@ class CoordinatesFrame(tk.Frame):
         cv2.arrowedLine(undistorted, origin, x_axis_end, (255, 0, 0), 2)
         cv2.arrowedLine(undistorted, origin, y_axis_end, (0, 255, 0), 2)
         cv2.circle(undistorted, origin, 5, (0, 0, 255), -1)
-        cv2.circle(undistorted, (int(selected_pixel[0,0]), int(selected_pixel[0,1])), 5, (0, 255, 255), -1)
-        coord_text = f"({world_coord[0,0]:.2f}, {world_coord[0,1]:.2f})"
-        cv2.putText(undistorted, coord_text, (int(selected_pixel[0,0]) + 10, int(selected_pixel[0,1]) - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+        cv2.circle(undistorted, (int(selected_pixel[0, 0]), int(selected_pixel[0, 1])), 5, (0, 255, 255), -1)
+        coord_text = f"({world_coord[0, 0]:.2f}, {world_coord[0, 1]:.2f})"
+        cv2.putText(
+            undistorted,
+            coord_text,
+            (int(selected_pixel[0, 0]) + 10, int(selected_pixel[0, 1]) - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 0, 0),
+            2
+        )
         cv2.imshow("Result", undistorted)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-        messagebox.showinfo("Coordinates", f"Selected Pixel: ({int(selected_pixel[0,0])}, {int(selected_pixel[0,1])})\nWorld Coordinates: {coord_text}")
+        messagebox.showinfo(
+            "Coordinates",
+            f"Selected Pixel: ({int(selected_pixel[0, 0])}, {int(selected_pixel[0, 1])})\nWorld Coordinates: {coord_text}"
+        )
