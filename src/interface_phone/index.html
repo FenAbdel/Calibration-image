@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capture Photo</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .capture-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .capture-btn:not(:disabled):hover {
+            transform: scale(1.05);
+        }
+        
+        .capture-btn:active {
+            transform: scale(0.95);
+        }
+        
+        #video, #canvas {
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            background-color: #f8f9fa;
+        }
+        
+        .status-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        .gradient-background {
+            background: linear-gradient(135deg, #f6f8fc 0%, #ffffff 100%);
+        }
+    </style>
+</head>
+<body class="gradient-background min-h-screen">
+    <div class="max-w-4xl mx-auto p-6">
+        <h1 class="text-4xl font-bold text-gray-800 mb-8 text-center">Capture Photo</h1>
+        
+        <div id="browserInfo" class="text-sm text-gray-600 mb-4 text-center"></div>
+        <div id="error" class="text-red-500 font-medium mb-4 text-center"></div>
+        
+        <div class="relative">
+            <video id="video" class="w-full max-w-2xl mx-auto mb-6" autoplay playsinline></video>
+            <canvas id="canvas" class="hidden"></canvas>
+        </div>
+        
+        <div id="controls" class="flex justify-center gap-4 mb-6">
+            <button id="startCamera" 
+                    class="capture-btn bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all">
+                Démarrer la caméra
+            </button>
+            <button id="capture" 
+                    disabled 
+                    class="capture-btn bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                Prendre une photo
+            </button>
+        </div>
+        
+        <div id="status" class="text-gray-700 italic text-center"></div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startButton = document.getElementById('startCamera');
+        const captureButton = document.getElementById('capture');
+        const statusDiv = document.getElementById('status');
+        const errorDiv = document.getElementById('error');
+        const browserInfoDiv = document.getElementById('browserInfo');
+        let stream = null;
+
+        
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            errorDiv.textContent = 'Votre navigateur ne supporte pas l\'accès à la caméra. Veuillez utiliser un navigateur récent comme Chrome ou Firefox.';
+            startButton.disabled = true;
+        }
+
+        startButton.addEventListener('click', async () => {
+            try {
+                errorDiv.textContent = '';
+                statusDiv.textContent = 'Demande d\'accès à la caméra...';
+                statusDiv.classList.add('status-animation');
+                
+                const constraints = {
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+                
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                startButton.disabled = true;
+                captureButton.disabled = false;
+                statusDiv.textContent = 'Caméra activée';
+                statusDiv.classList.remove('status-animation');
+                
+                const tracks = stream.getVideoTracks();
+                if (tracks.length > 0) {
+                    const settings = tracks[0].getSettings();
+                    statusDiv.textContent += `\nRésolution: ${settings.width}x${settings.height}`;
+                }
+            } catch (err) {
+                console.error('Erreur:', err);
+                errorDiv.textContent = `Erreur lors de l'activation de la caméra: ${err.message}`;
+                if (err.name === 'NotAllowedError') {
+                    errorDiv.textContent += '\nVeuillez autoriser l\'accès à la caméra dans les paramètres de votre navigateur.';
+                } else if (err.name === 'NotFoundError') {
+                    errorDiv.textContent += '\nAucune caméra trouvée sur votre appareil.';
+                }
+                statusDiv.classList.remove('status-animation');
+            }
+        });
+
+        captureButton.addEventListener('click', () => {
+            errorDiv.textContent = '';
+            statusDiv.textContent = 'Capture en cours...';
+            statusDiv.classList.add('status-animation');
+            
+            try {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const context = canvas.getContext('2d');
+                
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const imageData = canvas.toDataURL('image/jpeg');
+                
+                fetch('/capture', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ image: imageData })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        statusDiv.textContent = `Photo sauvegardée: ${data.filename}`;
+                    } else {
+                        errorDiv.textContent = `Erreur: ${data.error}`;
+                    }
+                    statusDiv.classList.remove('status-animation');
+                })
+                .catch(error => {
+                    errorDiv.textContent = `Erreur lors de l'envoi: ${error}`;
+                    statusDiv.classList.remove('status-animation');
+                });
+            } catch (err) {
+                errorDiv.textContent = `Erreur lors de la capture: ${err.message}`;
+                statusDiv.classList.remove('status-animation');
+            }
+        });
+    </script>
+</body>
+</html>
