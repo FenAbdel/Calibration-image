@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from gui.calibration_frame import CalibrationFrame
-from gui.coordinates_frame import CoordinatesFrame
+from gui.coordinates_frame import CombinedFrame
 from gui.map_frame import MapFrame
 
 class CalibrationApp(tk.Tk):
@@ -14,7 +14,7 @@ class CalibrationApp(tk.Tk):
         notebook.pack(fill="both", expand=True)
 
         self.calibration_frame = CalibrationFrame(notebook)
-        self.coordinates_frame = CoordinatesFrame(notebook)
+        self.coordinates_frame = CombinedFrame(notebook)
         self.map_frame = MapFrame(notebook)
 
         notebook.add(self.calibration_frame, text="Calibration")

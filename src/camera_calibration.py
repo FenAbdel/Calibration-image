@@ -56,10 +56,10 @@ class CameraCalibrator:
             print("Chessboard not found")
             return False, None
 
-        if visualize and index < 12:
-            img_w_corners = cv2.drawChessboardCorners(imgRGB, self.pattern_size, corners, found)
-            plt.subplot(4, 3, index + 1)
-            plt.imshow(img_w_corners)
+        #if visualize and index < 12:
+            #img_w_corners = cv2.drawChessboardCorners(imgRGB, self.pattern_size, corners, found)
+            #plt.subplot(4, 3, index + 1)
+            #plt.imshow(img_w_corners)
 
         print(f"{img_path}... OK")
         return True, corners.reshape(-1, 2)
