@@ -125,3 +125,56 @@ def start_capture_server_in_thread(target_folder):
     if not capture_server_started:
         threading.Thread(target=run_capture_server, daemon=True).start()
         capture_server_started = True
+
+@capture_app.route('/capture_video', methods=['POST'])
+def capture_video():
+    """Gère la réception d'une vidéo encodée en base64 et l'enregistre dans le format approprié."""
+    try:
+        global target_upload_folder
+        
+        video_data = request.json['video']
+        mime_type = request.json.get('mimeType', 'video/webm')
+        
+        if ',' in video_data:
+            video_data = video_data.split(',')[1]
+
+        if not os.path.exists(target_upload_folder):
+            os.makedirs(target_upload_folder)
+
+        # Déterminer l'extension en fonction du type MIME
+        extension = '.mp4' if 'mp4' in mime_type else '.webm'
+        filename = f"video_{datetime.now().strftime('%Y%m%d_%H%M%S')}{extension}"
+        filepath = os.path.join(target_upload_folder, filename)
+
+        # Sauvegarder la vidéo
+        with open(filepath, 'wb') as f:
+            f.write(base64.b64decode(video_data))
+
+        # Si ce n'est pas déjà un MP4 et que ffmpeg est disponible, convertir en MP4
+        if extension != '.mp4' and shutil.which('ffmpeg'):
+            output_filepath = filepath.replace(extension, '.mp4')
+            try:
+                subprocess.run([
+                    'ffmpeg', '-i', filepath,
+                    '-c:v', 'libx264',
+                    '-preset', 'medium',
+                    '-crf', '23',
+                    '-c:a', 'aac',
+                    '-b:a', '128k',
+                    output_filepath
+                ], check=True, capture_output=True)
+                
+                # Si la conversion réussit, supprimer le fichier original
+                os.remove(filepath)
+                filename = os.path.basename(output_filepath)
+            except subprocess.CalledProcessError:
+                # En cas d'erreur de conversion, garder le fichier original
+                pass
+
+        return jsonify({'success': True, 'filename': filename})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Ajouter ces imports au début du fichier
+import subprocess
+import shutil

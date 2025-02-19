@@ -52,6 +52,7 @@ class CoordinateTransformer:
 
         self.H, _ = cv2.findHomography(world_points[:, :2], self.corners.reshape(-1, 2))
         self.H_inv = np.linalg.inv(self.H)
+        
         return True
 
     def pixel_to_world(self, pixel_points: np.ndarray) -> np.ndarray:

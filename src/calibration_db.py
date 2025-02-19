@@ -7,7 +7,6 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 CALIB_DB = os.path.join(DATA_DIR, "calibration_db.json")
 
-print(BASE_DIR)
 def load_calibrations():
     if os.path.exists(CALIB_DB):
         with open(CALIB_DB, "r") as f:

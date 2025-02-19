@@ -17,6 +17,7 @@ class CombinedFrame(tb.Frame):
         self.master = master
         self.grid(sticky="nsew")
         self.columnconfigure(0, weight=1)
+        self.bind("<Visibility>", self.on_visibility)
         
         # Variable to store the selected test image path
         self.test_image_path = None
@@ -68,6 +69,7 @@ class CombinedFrame(tb.Frame):
         self.pixel_y_entry = tb.Entry(self.manual_frame, width=5)
         self.pixel_y_entry.grid(row=0, column=3, padx=5, pady=5)
         
+        
         # -----------------------
         # Actions Section
         # -----------------------
@@ -82,7 +84,10 @@ class CombinedFrame(tb.Frame):
         # Make rows expand equally for a responsive layout
         for i in range(4):
             self.rowconfigure(i, weight=1)
-    
+
+    def on_visibility(self, event):
+        self.update_camera_choices()
+            
     def update_camera_choices(self):
         calibrations = load_calibrations()
         cam_names = list(calibrations.keys())
