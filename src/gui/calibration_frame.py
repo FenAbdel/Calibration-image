@@ -24,27 +24,27 @@ class CalibrationFrame(tb.Frame):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)  # La zone centrale s'étend
 
-        # --- Zone supérieure : Options caméra & QR Code ---
+        # --- Zone supérieure : Options caméra & Code QR ---
         top_frame = tb.Frame(self)
         top_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
         top_frame.columnconfigure(0, weight=1)
         top_frame.columnconfigure(1, weight=1)
         
         # Colonne de gauche : Options caméra et boutons d'actions
-        cam_options_frame = tb.Labelframe(top_frame, text="Camera Options", bootstyle="info")
+        cam_options_frame = tb.Labelframe(top_frame, text="Options de la caméra", bootstyle="info")
         cam_options_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         cam_options_frame.columnconfigure(1, weight=1)
         
-        tb.Label(cam_options_frame, text="Camera Name:", font=("Segoe UI", 12)).grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        tb.Label(cam_options_frame, text="Nom de la caméra :", font=("Segoe UI", 12)).grid(row=0, column=0, sticky="w", padx=5, pady=5)
         self.camera_name_entry = tb.Entry(cam_options_frame, font=("Segoe UI", 12))
         self.camera_name_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
 
-        tb.Label(cam_options_frame, text="Square Size (mm):", font=("Segoe UI", 12)).grid(row=1, column=0, sticky="w", padx=5, pady=5)
+        tb.Label(cam_options_frame, text="Taille du carré (mm) :", font=("Segoe UI", 12)).grid(row=1, column=0, sticky="w", padx=5, pady=5)
         self.square_size_entry = tb.Entry(cam_options_frame, font=("Segoe UI", 12))
         self.square_size_entry.insert(0, "30.0")
         self.square_size_entry.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
 
-        tb.Label(cam_options_frame, text="Pattern Size (e.g. 4,4):", font=("Segoe UI", 12)).grid(row=2, column=0, sticky="w", padx=5, pady=5)
+        tb.Label(cam_options_frame, text="Taille du motif (ex : 4,4) :", font=("Segoe UI", 12)).grid(row=2, column=0, sticky="w", padx=5, pady=5)
         self.pattern_size_entry = tb.Entry(cam_options_frame, font=("Segoe UI", 12))
         self.pattern_size_entry.insert(0, "4,4")
         self.pattern_size_entry.grid(row=2, column=1, sticky="ew", padx=5, pady=5)
@@ -55,21 +55,21 @@ class CalibrationFrame(tb.Frame):
         action_buttons_frame.columnconfigure(0, weight=1)
         action_buttons_frame.columnconfigure(1, weight=1)
         action_buttons_frame.columnconfigure(2, weight=1)
-        tb.Button(action_buttons_frame, text="Select Calibration Images", command=self.select_calib_images, bootstyle="primary")\
+        tb.Button(action_buttons_frame, text="Sélectionner les images de calibration", command=self.select_calib_images, bootstyle="primary")\
             .grid(row=0, column=0, sticky="ew", padx=3, pady=3)
-        tb.Button(action_buttons_frame, text="Capture Images from Phone", command=self.start_capture_server, bootstyle="success")\
+        tb.Button(action_buttons_frame, text="Capturer des images depuis le téléphone", command=self.start_capture_server, bootstyle="success")\
             .grid(row=0, column=1, sticky="ew", padx=3, pady=3)
-        tb.Button(action_buttons_frame, text="Refresh Captured Images", command=self.load_captured_images, bootstyle="warning")\
+        tb.Button(action_buttons_frame, text="Rafraîchir les images capturées", command=self.load_captured_images, bootstyle="warning")\
             .grid(row=0, column=2, sticky="ew", padx=3, pady=3)
         
-        # Colonne de droite : Affichage du QR Code
-        self.qr_frame = tb.Labelframe(top_frame, text="QR Code", bootstyle="info")
+        # Colonne de droite : Affichage du Code QR
+        self.qr_frame = tb.Labelframe(top_frame, text="Code QR", bootstyle="info")
         self.qr_frame.grid(row=0, column=1, rowspan=1, sticky="nsew", padx=5, pady=5)
-        # Affichage initial pour le QR Code
-        tb.Label(self.qr_frame, text="Le QR Code s'affichera ici", font=("Segoe UI", 12)).pack(padx=10, pady=10)
+        # Affichage initial pour le Code QR
+        tb.Label(self.qr_frame, text="Le code QR s'affichera ici", font=("Segoe UI", 12)).pack(padx=10, pady=10)
         
         # --- Zone centrale : Images capturées ---
-        captured_frame = tb.Labelframe(self, text="Captured Images (Cliquez pour sélectionner/désélectionner)", bootstyle="info")
+        captured_frame = tb.Labelframe(self, text="Images capturées (Cliquez pour sélectionner/désélectionner)", bootstyle="info")
         captured_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
         self.rowconfigure(1, weight=1)
         captured_frame.columnconfigure(0, weight=1)
@@ -92,7 +92,7 @@ class CalibrationFrame(tb.Frame):
         bottom_frame.columnconfigure(0, weight=1)
         self.status_label = tb.Label(bottom_frame, text="0 images validées pour calibration.", font=("Segoe UI", 12))
         self.status_label.grid(row=0, column=0, sticky="w", padx=5, pady=5)
-        tb.Button(bottom_frame, text="Calibrate Camera", command=self.calibrate_camera, bootstyle="success-outline")\
+        tb.Button(bottom_frame, text="Calibrer la caméra", command=self.calibrate_camera, bootstyle="success-outline")\
             .grid(row=0, column=1, sticky="e", padx=5, pady=5)
         
         # Variables internes
@@ -115,15 +115,15 @@ class CalibrationFrame(tb.Frame):
     # Méthode modifiée pour copier les images sélectionnées dans le dossier de la caméra
     def select_calib_images(self):
         files = filedialog.askopenfilenames(
-            title="Select Calibration Images",
-            filetypes=[("Image Files", "*.jpg;*.jpeg;*.png")]
+            title="Sélectionner les images de calibration",
+            filetypes=[("Fichiers d'images", "*.jpg;*.jpeg;*.png")]
         )
         if not files:
             return
 
         camera_name = self.camera_name_entry.get().strip()
         if not camera_name:
-            messagebox.showerror("Error", "Veuillez renseigner un nom de caméra.")
+            messagebox.showerror("Erreur", "Veuillez renseigner un nom de caméra.")
             return
 
         self.ensure_camera_folder(camera_name)
@@ -134,13 +134,13 @@ class CalibrationFrame(tb.Frame):
             try:
                 shutil.copy(file, dest_path)
             except Exception as e:
-                messagebox.showerror("Erreur", f"Erreur lors de la copie de {filename}: {e}")
+                messagebox.showerror("Erreur", f"Erreur lors de la copie de {filename} : {e}")
                 continue
 
             if dest_path not in self.calib_files:
                 self.calib_files.append(dest_path)
 
-        messagebox.showinfo("Images Selected", f"{len(files)} images ajoutées.")
+        messagebox.showinfo("Images sélectionnées", f"{len(files)} images ajoutées.")
         self.update_status_label()
         self.load_captured_images()
 
@@ -184,7 +184,7 @@ class CalibrationFrame(tb.Frame):
                     print("Erreur lors du chargement de l'image :", full_path, e)
 
         else:
-            messagebox.showerror("Error", f"Photos folder not found at {PHOTOS_FOLDER}.")
+            messagebox.showerror("Erreur", f"Dossier des photos non trouvé à {PHOTOS_FOLDER}.")
 
     def toggle_image_selection(self, full_path, button):
         if full_path in self.calib_files:
@@ -201,20 +201,20 @@ class CalibrationFrame(tb.Frame):
     def calibrate_camera(self):
         camera_name = self.camera_name_entry.get().strip()
         if not camera_name:
-            messagebox.showerror("Error", "Veuillez renseigner un nom de caméra.")
+            messagebox.showerror("Erreur", "Veuillez renseigner un nom de caméra.")
             return
         try:
             square_size = float(self.square_size_entry.get())
         except ValueError:
-            messagebox.showerror("Error", "Taille de carré invalide.")
+            messagebox.showerror("Erreur", "Taille de carré invalide.")
             return
         try:
             pattern_size = tuple(map(int, self.pattern_size_entry.get().split(',')))
         except Exception:
-            messagebox.showerror("Error", "Taille du motif invalide. Format attendu : 4,4")
+            messagebox.showerror("Erreur", "Taille du motif invalide. Format attendu : 4,4")
             return
         if not self.calib_files:
-            messagebox.showerror("Error", "Aucune image validée pour la calibration.")
+            messagebox.showerror("Erreur", "Aucune image validée pour la calibration.")
             return
         
         calibrator = CameraCalibrator(square_size, pattern_size)
@@ -226,7 +226,7 @@ class CalibrationFrame(tb.Frame):
                 img_points.append(corners)
                 obj_points.append(calibrator._pattern_points)
         if len(obj_points) < 1:
-            messagebox.showerror("Error", "Calibration échouée : aucune image valide.")
+            messagebox.showerror("Erreur", "Calibration échouée : aucune image valide.")
             return
         img = cv2.imread(self.calib_files[0])
         h, w = img.shape[:2]
@@ -239,7 +239,7 @@ class CalibrationFrame(tb.Frame):
     def start_capture_server(self):
         camera_name = self.camera_name_entry.get().strip()
         if not camera_name:
-            messagebox.showerror("Error", "Veuillez renseigner un nom de caméra.")
+            messagebox.showerror("Erreur", "Veuillez renseigner un nom de caméra.")
             return
         
         camera_folder = self.ensure_camera_folder(camera_name)
@@ -253,10 +253,10 @@ class CalibrationFrame(tb.Frame):
         qr_img = qr.make_image(fill_color="black", back_color="white")
         qr_img_tk = ImageTk.PhotoImage(qr_img)
         
-        # Mise à jour de la zone QR Code
+        # Mise à jour de la zone Code QR
         for widget in self.qr_frame.winfo_children():
             widget.destroy()
-        tb.Label(self.qr_frame, text="Scannez ce QR code avec votre téléphone :", font=("Segoe UI", 8, "bold"))\
+        tb.Label(self.qr_frame, text="Scannez ce code QR avec votre téléphone :", font=("Segoe UI", 8, "bold"))\
             .pack(padx=10, pady=2)
         tb.Label(self.qr_frame, image=qr_img_tk).pack(padx=10, pady=5)
         tb.Label(self.qr_frame, text=url, font=("Segoe UI", 12))\

@@ -9,7 +9,6 @@ import math
 from ttkbootstrap.constants import *
 from tkinter import messagebox
 from PIL import Image, ImageTk, ImageDraw
-from tkinter.scrolledtext import ScrolledText
 from calibration_db import load_calibrations
 from capture_server import start_capture_server_in_thread, get_local_ip
 from camera_calibration import CameraCalibrator 
@@ -24,14 +23,19 @@ class Experience(tb.Frame):
         super().__init__(master, padding=10)
         self.grid(sticky="nsew")
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(1, weight=1)
+        self.rowconfigure(1, weight=1)  # La zone centrale s'étend
         self.bind("<Visibility>", self.on_visibility)
+        
+        # Initialize Kalman filter attribute to None
+        self.kalman = None
+
+        # --- Top Frame ---
         top_frame = tb.Frame(self)
         top_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
         top_frame.columnconfigure(0, weight=1)
         top_frame.columnconfigure(1, weight=1)
         
-        # Camera Options Panel
+        # Camera Options Frame (left column)
         cam_options_frame = tb.Labelframe(top_frame, text="Camera Options", bootstyle="info")
         cam_options_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         cam_options_frame.columnconfigure(1, weight=1)
@@ -70,20 +74,21 @@ class Experience(tb.Frame):
         self.qr_frame.grid(row=0, column=1, rowspan=1, sticky="nsew", padx=5, pady=5)
         tb.Label(self.qr_frame, text="Le QR Code s'affichera ici", font=("Segoe UI", 12)).pack(padx=10, pady=10)
         
-        # Main Panel with Two Columns
+        # --- Central Frame (Two Columns) ---
         center_frame = tb.Frame(self)
         center_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
         center_frame.columnconfigure(0, weight=1)
         center_frame.columnconfigure(1, weight=5)
         center_frame.rowconfigure(0, weight=1)
 
-        # Captured Media Panel
+        # Captured Media Frame (left column)
         captured_frame = tb.Labelframe(center_frame, text="Captured Media (Cliquez pour sélectionner/désélectionner)", bootstyle="info")
         captured_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         captured_frame.columnconfigure(0, weight=1)
         captured_frame.rowconfigure(0, weight=1)
         captured_frame.configure(width=200)
         captured_frame.grid_propagate(False)
+
         self.images_canvas = tb.Canvas(captured_frame, background="#ffffff", bd=0, highlightthickness=0)
         self.images_canvas.grid(row=0, column=0, sticky="nsew")
         self.images_canvas.config(height=300)
@@ -97,75 +102,72 @@ class Experience(tb.Frame):
         
         upload_button = tb.Button(captured_frame, text="Upload Selected Video", command=self.upload_video, bootstyle="warning")
         upload_button.grid(row=1, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+
         extraire_button = tb.Button(captured_frame, text="Extraire la matrice d'homographie", command=self.extract_homography_matrix, bootstyle="info")
         extraire_button.grid(row=2, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
-        # Extraction & Processing Panel
+        # Extraction & Traitement Block (right column)
         self.additional_block = tb.Labelframe(center_frame, text="Extraction & Traitement", bootstyle="info")
         self.additional_block.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
         self.additional_block.columnconfigure(0, weight=1)
         self.additional_block.columnconfigure(1, weight=1)
         self.additional_block.rowconfigure(2, weight=1)
 
-        # Frame selection sliders
         start_controls = tb.Frame(self.additional_block)
         start_controls.grid(row=0, column=0, sticky="w", padx=10, pady=5)
         start_label = tb.Label(start_controls, text="Frame de début :", font=("Segoe UI", 10))
         start_label.pack(side="left", padx=(0, 5))
-        self.start_frame_slider = tb.Scale(start_controls, from_=0, to=100, orient="horizontal", bootstyle="info", length=150, command=self.update_start_frame_preview)
+        self.start_frame_slider = tb.Scale(
+            start_controls,
+            from_=0,
+            to=100,
+            orient="horizontal",
+            bootstyle="info",
+            length=150,
+            command=self.update_start_frame_preview
+        )
         self.start_frame_slider.pack(side="left")
 
         end_controls = tb.Frame(self.additional_block)
         end_controls.grid(row=0, column=1, sticky="w", padx=10, pady=5)
         end_label = tb.Label(end_controls, text="Frame de fin :", font=("Segoe UI", 10))
         end_label.pack(side="left", padx=(0, 5))
-        self.end_frame_slider = tb.Scale(end_controls, from_=0, to=100, orient="horizontal", bootstyle="info", length=150, command=self.update_end_frame_preview)
+        self.end_frame_slider = tb.Scale(
+            end_controls,
+            from_=0,
+            to=100,
+            orient="horizontal",
+            bootstyle="info",
+            length=150,
+            command=self.update_end_frame_preview
+        )
         self.end_frame_slider.pack(side="left")
 
-        # Frame previews
         self.start_preview_label = tb.Label(self.additional_block, relief="sunken")
         self.start_preview_label.grid(row=1, column=0, padx=10, pady=5)
         self.end_preview_label = tb.Label(self.additional_block, relief="sunken")
         self.end_preview_label.grid(row=1, column=1, padx=10, pady=5)
-
-        # Extraction buttons
+        
         extract_button = tb.Button(self.additional_block, text="Extraire", command=self.extract_frames, bootstyle="success")
         extract_button.grid(row=3, column=1, sticky="se", padx=10, pady=10)
-        extract_button2 = tb.Button(self.additional_block, text="Substract", command=self.subtract_frames, bootstyle="success")
-        extract_button2.grid(row=3, column=2, sticky="se", padx=10, pady=10)
+        analyse_button = tb.Button(self.additional_block, text="Analyse Motion", command=self.analyze_motion_instantaneous, bootstyle="success")
+        analyse_button.grid(row=3, column=2, sticky="se", padx=10, pady=10)
+        preview_button = tb.Button(self.additional_block, text="Preview Detection (External)", command=self.preview_detection_external, bootstyle="secondary")
+        preview_button.grid(row=3, column=0, sticky="se", padx=10, pady=10)
         
-        # Instead of a fixed results label, we use a scrolled text widget so that long results can be scrolled
-        self.results_text_widget = ScrolledText(self.additional_block, wrap="word", font=("Segoe UI", 10), height=10)
-        self.results_text_widget.grid(row=5, column=0, columnspan=3, sticky="nsew", padx=10, pady=5)
-        
-        # (Optional) If you still want a slider for detection index, uncomment the following block.
-        # detection_frame = tb.Frame(self.additional_block)
-        # detection_frame.grid(row=4, column=0, columnspan=3, sticky="ew", padx=10, pady=5)
-        # detection_label = tb.Label(detection_frame, text="Detection Index:", font=("Segoe UI", 10))
-        # detection_label.pack(side="left", padx=(0,5))
-        # self.speed_index_slider = tb.Scale(detection_frame, from_=0, to=0, orient="horizontal", bootstyle="info", command=self.update_speed_index_display, length=150)
-        # self.speed_index_slider.pack(side="left")
-        
+        # Internal state variables
         self.calib_files = [] 
         self.thumbnail_images = {} 
         self.current_camera_folder = None
         self.cap = None
-        self.selected_video_path = None  
-        self.uploaded_video_path = None  
+        self.selected_video_path = None  # currently selected video path
+        self.uploaded_video_path = None  # stored video path for next treatment
         self.selected_video_button = None
         
-        self.frame1_selected = None  
-        self.frame2_selected = None  
-        self.frame3_selected = None  
-        
-        # Variables to store computed time intervals and speeds
-        self.dt1 = None
-        self.dt2 = None
-        self.total_dt = None
-        self.distances = {}
-        self.speeds = {}
-        self.acceleration = None
-        
+        self.frame1_selected = None  # Start frame
+        self.frame2_selected = None  # Middle frame
+        self.frame3_selected = None  # End frame
+
     def on_visibility(self, event):
         self.update_camera_choices()
     
@@ -239,12 +241,9 @@ class Experience(tb.Frame):
     def load_captured_images(self):
         for widget in self.images_frame.winfo_children():
             widget.destroy()
-        
         camera_name = self.camera_choice.get().strip()
-        print("Loading images for camera:", camera_name)
         if camera_name:
             self.ensure_camera_folder(camera_name)
-        
         if os.path.exists(self.current_camera_folder):
             files = sorted(os.listdir(self.current_camera_folder))
             image_extensions = ('.jpg', '.jpeg', '.png')
@@ -284,11 +283,10 @@ class Experience(tb.Frame):
             total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
             self.start_frame_slider.config(to=total_frames - 1)
             self.end_frame_slider.config(to=total_frames - 1)
-            print("Selected video for upload:", self.uploaded_video_path)
             messagebox.showinfo("Upload", f"Video selected for upload:\n{self.uploaded_video_path}")
         else:
             messagebox.showwarning("Upload", "Aucune vidéo sélectionnée!")
-    
+
     def extract_homography_matrix(self):
         if not self.calib_files:
             messagebox.showwarning("Erreur", "Aucune image sélectionnée dans Captured Images.")
@@ -313,16 +311,12 @@ class Experience(tb.Frame):
         transformer = CoordinateTransformer(camera_matrix, dist_coefs, pattern_size)
         if transformer.compute_homography(img):
             self.coordinate_transformer = transformer
-            print(self.coordinate_transformer.H_inv)
-            messagebox.showinfo("Homographie", f"Homographie calculée avec succès.\n\nMatrice H :\n{transformer.H_inv}")
+            messagebox.showinfo("Homographie",
+                                f"Homographie calculée avec succès.\n\nMatrice H :\n{transformer.H_inv}")
         else:
-            messagebox.showerror("Erreur", "Échec du calcul de la matrice d'homographie.\nVérifiez que l'image contient bien le motif (échiquier) attendu.")
-    
-    def calculate_fps(self):
-        cap = cv2.VideoCapture(self.uploaded_video_path)
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        cap.release()
-        return fps
+            messagebox.showerror("Erreur",
+                                "Échec du calcul de la matrice d'homographie.\n"
+                                "Vérifiez que l'image contient bien le motif (échiquier) attendu.")
 
     def extract_frames(self):
         if not self.uploaded_video_path:
@@ -340,35 +334,17 @@ class Experience(tb.Frame):
         if not os.path.exists(output_folder):
             os.makedirs(output_folder)
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-        ret, frame = self.cap.read()
-        if ret:
-            start_frame_filename = os.path.join(output_folder, f"frame_{start_frame}.jpg")
-            cv2.imwrite(start_frame_filename, frame)
-            self.frame1_selected = frame.copy()
-        else:
-            messagebox.showerror("Erreur", f"Impossible de lire la frame {start_frame}!")
-            return
-        mid_frame = start_frame + ((end_frame - start_frame) // 2)
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, mid_frame)
-        ret, frame = self.cap.read()
-        if ret:
-            mid_frame_filename = os.path.join(output_folder, f"frame_{mid_frame}.jpg")
-            cv2.imwrite(mid_frame_filename, frame)
-            self.frame2_selected = frame.copy()
-        else:
-            messagebox.showerror("Erreur", f"Impossible de lire la frame {mid_frame}!")
-            return
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, end_frame)
-        ret, frame = self.cap.read()
-        if ret:
-            end_frame_filename = os.path.join(output_folder, f"frame_{end_frame}.jpg")
-            cv2.imwrite(end_frame_filename, frame)
-            self.frame3_selected = frame.copy()
-        else:
-            messagebox.showerror("Erreur", f"Impossible de lire la frame {end_frame}!")
-            return
-        messagebox.showinfo("Extraction Terminée", f"Extraction terminée.\nFrames extraites: 3\nDossier: {output_folder}")
-
+        current_frame = start_frame
+        while current_frame <= end_frame:
+            ret, frame = self.cap.read()
+            if not ret:
+                break
+            frame_filename = os.path.join(output_folder, f"frame_{current_frame}.jpg")
+            cv2.imwrite(frame_filename, frame)
+            current_frame += 1
+        messagebox.showinfo("Extraction Terminée",
+                            f"Extraction terminée.\nFrames extraites: {current_frame - start_frame}\nDossier: {output_folder}")
+    
     def update_start_frame_preview(self, value):
         frame_number = int(float(value))
         if self.cap is None:
@@ -409,109 +385,241 @@ class Experience(tb.Frame):
         self.end_preview_label.config(image=image_tk)
         self.end_preview_label.image = image_tk
         
-    def subtract_frames(self):
-        if (self.frame1_selected is None or self.frame2_selected is None or self.frame3_selected is None):
-            messagebox.showinfo("Upload", "Veuillez extraire les frames d'abord.")
+    def calculate_fps(self):
+        cap = cv2.VideoCapture(self.uploaded_video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        cap.release()
+        return fps
+
+    # --- Improved Centroid Detection Methods ---
+    def detect_object_center_blob(self, frame):
+        # Convert frame to grayscale and apply a Gaussian blur to reduce noise
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        # Set up SimpleBlobDetector parameters
+        params = cv2.SimpleBlobDetector_Params()
+        params.filterByArea = True
+        params.minArea = 50      # Adjust based on expected object size
+        params.maxArea = 5000    # Adjust as needed
+        params.filterByCircularity = False  # Set True if the object is roughly circular
+        params.filterByConvexity = False
+        params.filterByInertia = False
+
+        detector = cv2.SimpleBlobDetector_create(params)
+        keypoints = detector.detect(blurred)
+
+        if keypoints:
+            # Optionally pick the keypoint with the largest size
+            best_keypoint = max(keypoints, key=lambda kp: kp.size)
+            cx, cy = int(best_keypoint.pt[0]), int(best_keypoint.pt[1])
+            return (cx, cy)
+        return None
+
+    def initialize_kalman(self, center):
+        # Initialize a Kalman filter with a 4D state [x, y, vx, vy] and 2D measurement [x, y]
+        self.kalman = cv2.KalmanFilter(4, 2)
+        self.kalman.measurementMatrix = np.array([[1, 0, 0, 0],
+                                                  [0, 1, 0, 0]], np.float32)
+        self.kalman.transitionMatrix = np.array([[1, 0, 1, 0],
+                                                 [0, 1, 0, 1],
+                                                 [0, 0, 1, 0],
+                                                 [0, 0, 0, 1]], np.float32)
+        self.kalman.processNoiseCov = np.eye(4, dtype=np.float32) * 0.03
+        self.kalman.measurementNoiseCov = np.eye(2, dtype=np.float32) * 0.5
+        self.kalman.errorCovPost = np.eye(4, dtype=np.float32)
+        self.kalman.statePost = np.array([[np.float32(center[0])],
+                                          [np.float32(center[1])],
+                                          [0],
+                                          [0]], np.float32)
+
+    def detect_object_center(self, frame):
+        """
+        Improved method that first uses a blob detector to obtain a measurement of the object center.
+        Then, it uses a Kalman filter (initialized on the first measurement) to smooth/predict the position.
+        """
+        measurement_center = self.detect_object_center_blob(frame)
+        if measurement_center is None:
+            return None
+        if not hasattr(self, 'kalman') or self.kalman is None:
+            self.initialize_kalman(measurement_center)
+            return measurement_center
+        else:
+            measurement = np.array([[np.float32(measurement_center[0])],
+                                    [np.float32(measurement_center[1])]])
+            self.kalman.correct(measurement)
+            predicted = self.kalman.predict()
+            predicted_center = (int(predicted[0]), int(predicted[1]))
+            return predicted_center
+
+    def preview_detection_external(self):
+        if not self.uploaded_video_path:
+            messagebox.showwarning("Erreur", "Aucune vidéo n'a été sélectionnée!")
             return
-        self.analyze_frame_difference(self.frame1_selected, self.frame2_selected, self.frame3_selected, threshold=30)
-    
-    def extract_selected_frames(self):
+        self.preview_window = tk.Toplevel(self)
+        self.preview_window.title("Detection Preview")
+        self.preview_window.geometry("400x300")
+        self.preview_label = tb.Label(self.preview_window)
+        self.preview_label.pack(padx=10, pady=10)
+        self.cap_preview = cv2.VideoCapture(self.uploaded_video_path)
+        self.update_preview()
+
+    def update_preview(self):
+        ret, frame = self.cap_preview.read()
+        if ret:
+            center = self.detect_object_center(frame)
+            if center is not None:
+                cv2.circle(frame, center, 10, (0, 255, 0), 2)
+            scale_factor = 0.3
+            frame = cv2.resize(frame, (0, 0), fx=scale_factor, fy=scale_factor)
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            img = Image.fromarray(frame_rgb)
+            img_tk = ImageTk.PhotoImage(img)
+            self.preview_label.config(image=img_tk)
+            self.preview_label.image = img_tk
+            self.preview_window.after(30, self.update_preview)
+        else:
+            self.cap_preview.release()
+            self.preview_window.destroy()
+
+    def detect_movement_between_frames(self, start_frame, end_frame):
+        cap = cv2.VideoCapture(self.uploaded_video_path)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if start_frame < 0 or end_frame >= total_frames or start_frame > end_frame:
+            messagebox.showerror("Erreur", "Valeurs de frames invalides!")
+            cap.release()
+            return None
+        cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+        ret, frame_start = cap.read()
+        if not ret:
+            messagebox.showerror("Erreur", "Impossible de lire la frame de début")
+            cap.release()
+            return None
+        cap.set(cv2.CAP_PROP_POS_FRAMES, end_frame)
+        ret, frame_end = cap.read()
+        if not ret:
+            messagebox.showerror("Erreur", "Impossible de lire la frame de fin")
+            cap.release()
+            return None
+        center_start = self.detect_object_center(frame_start)
+        center_end = self.detect_object_center(frame_end)
+        cap.release()
+        if center_start is None or center_end is None:
+            messagebox.showerror("Erreur", "L'objet n'a pas été détecté dans l'une des frames")
+            return None
+        dx = center_end[0] - center_start[0]
+        dy = center_end[1] - center_start[1]
+        displacement = (dx, dy)
+        distance = math.sqrt(dx * dx + dy * dy)
+        return center_start, center_end, displacement, distance
+
+    def analyze_motion_instantaneous(self):
+        if not hasattr(self, 'coordinate_transformer'):
+            messagebox.showerror("Erreur", "La matrice d'homographie n'a pas été calculée.")
+            return
+
         start_frame = int(self.start_frame_slider.get())
         end_frame = int(self.end_frame_slider.get())
-        return start_frame, end_frame
- 
-    def analyze_frame_difference(self, frame1, frame2, frame3, threshold=30):
-        def compute_difference_and_centroids(f1, f2):
-            if f1.shape != f2.shape:
-                f2 = cv2.resize(f2, (f1.shape[1], f1.shape[0]))
-            difference = cv2.absdiff(f1, f2)
-            gray_diff = cv2.cvtColor(difference, cv2.COLOR_BGR2GRAY)
-            _, thresh_diff = cv2.threshold(gray_diff, threshold, 255, cv2.THRESH_BINARY)
-            contours, _ = cv2.findContours(thresh_diff, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            highlighted = f1.copy()
-            object_centers = []
-            for contour in contours:
-                if cv2.contourArea(contour) > 100:
-                    x, y, w, h = cv2.boundingRect(contour)
-                    cv2.rectangle(highlighted, (x, y), (x + w, y + h), (0, 0, 255), 2)
-                    M = cv2.moments(contour)
-                    if M["m00"] != 0:
-                        cx = M["m10"] / M["m00"]
-                        cy = M["m01"] / M["m00"]
-                        if hasattr(self, 'coordinate_transformer') and self.coordinate_transformer.H_inv is not None:
-                            pt = np.array([[[cx, cy]]], dtype=np.float32)
-                            world_pt = cv2.perspectiveTransform(pt, self.coordinate_transformer.H_inv)
-                            cx, cy = world_pt[0][0]
-                        object_centers.append((cx, cy))
-                        cv2.circle(highlighted, (int(cx), int(cy)), 5, (255, 0, 0), -1)
-            return highlighted, object_centers
+        cap = cv2.VideoCapture(self.uploaded_video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if start_frame < 0 or end_frame >= total_frames or start_frame >= end_frame:
+            messagebox.showerror("Erreur", "Valeurs de frames invalides!")
+            cap.release()
+            return
 
-        highlighted1, centers1 = compute_difference_and_centroids(frame1, frame2)
-        highlighted2, centers2 = compute_difference_and_centroids(frame2, frame3)
-        highlighted3, centers3 = compute_difference_and_centroids(frame1, frame3)
+        try:
+            square_size = float(self.square_size_entry.get().strip())
+        except ValueError:
+            messagebox.showerror("Erreur", "Square Size invalide!")
+            cap.release()
+            return
 
-        self.centers = {
-            'Frame 1 et Frame 2': centers1,
-            'Frame 2 et Frame 3': centers2,
-            'Frame 1 et Frame 3': centers3
-        }
-
-        def euclidean_distance(pt1, pt2):
-            return math.sqrt((pt2[0] - pt1[0])**2 + (pt2[1] - pt1[1])**2)
-
-        def calculate_pairwise_distances(centers_list):
-            dists = []
-            if len(centers_list) >= 2:
-                for i in range(len(centers_list) - 1):
-                    scale = float(self.square_size_entry.get().strip())
-                    dists.append(euclidean_distance(centers_list[i], centers_list[i+1]) * scale)
-            return dists
-
-        self.distances = {
-            'Frame 1 et Frame 2': calculate_pairwise_distances(centers1),
-            'Frame 2 et Frame 3': calculate_pairwise_distances(centers2),
-            'Frame 1 et Frame 3': calculate_pairwise_distances(centers3)
-        }
-
-        start_frame, end_frame = self.extract_selected_frames()
-        mid_frame = start_frame + ((end_frame - start_frame) // 2)
-        self.fps_video = self.calculate_fps()
-        self.dt1 = (mid_frame - start_frame) / self.fps_video
-        self.dt2 = (end_frame - mid_frame) / self.fps_video
-        self.total_dt = self.dt1 + self.dt2
-
-        # Calculate speeds for each section using the appropriate dt:
-        self.speeds = {}
-        for section, dists in self.distances.items():
-            if section == 'Frame 1 et Frame 2':
-                dt = self.dt1
-            elif section == 'Frame 2 et Frame 3':
-                dt = self.dt2
-            elif section == 'Frame 1 et Frame 3':
-                dt = self.total_dt
+        dt = 1.0 / fps
+        centers_world = []
+        frame_numbers = []
+        for frame_no in range(start_frame, end_frame + 1):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_no)
+            ret, frame = cap.read()
+            if not ret:
+                centers_world.append(None)
             else:
-                dt = self.total_dt
-            speeds = []
-            for d in dists:
-                speeds.append(d / dt if dt > 0 else 0)
-            self.speeds[section] = speeds
+                # Undistort the frame using calibration parameters
+                undistorted_frame = cv2.undistort(frame, 
+                                                  self.coordinate_transformer.camera_matrix, 
+                                                  self.coordinate_transformer.dist_coefs, 
+                                                  None, 
+                                                  self.coordinate_transformer.camera_matrix)
+                center = self.detect_object_center(undistorted_frame)
+                if center is None:
+                    centers_world.append(None)
+                else:
+                    center_array = np.array([[center]], dtype=np.float32)
+                    world_pt = cv2.perspectiveTransform(center_array, self.coordinate_transformer.H_inv)
+                    # Multiply by square size (mm to cm conversion: mm/10 = cm)
+                    world_pt = world_pt[0, 0] * square_size / 10.0
+                    centers_world.append(world_pt)
+            frame_numbers.append(frame_no)
+        cap.release()
 
-        # Build results string (converting mm to m)
-        results = f"Time interval (Frame 1 -> Frame 2): {self.dt1:.2f} s\n"
-        results += f"Time interval (Frame 2 -> Frame 3): {self.dt2:.2f} s\n"
-        results += f"Total time (Frame 1 -> Frame 3): {self.total_dt:.2f} s\n\n"
-        for section in self.distances:
-            results += f"{section}:\n"
-            for i, (dist, speed) in enumerate(zip(self.distances[section], self.speeds[section])):
-                results += f"  Detection {i+1}: Distance = {dist/1000:.2f} m, Speed = {speed/1000:.2f} m/s\n"
-        # Compute acceleration based on the first detection in each segment (if available)
-        if self.speeds.get('Frame 1 et Frame 2') and self.speeds.get('Frame 2 et Frame 3'):
-            accel = (self.speeds['Frame 2 et Frame 3'][0] - self.speeds['Frame 1 et Frame 2'][0]) / self.dt2 if self.dt2 > 0 else 0
-            results += f"\nAcceleration = {accel/1000:.2f} m/s²\n"
-        else:
-            results += "\nAcceleration = N/A\n"
-            
-        # Update the scrolled text widget with the results.
-        self.results_text_widget.delete("1.0", tk.END)
-        self.results_text_widget.insert(tk.END, results)
-        print(results)
+        instantaneous_speeds = []
+        for i in range(1, len(centers_world)):
+            if centers_world[i] is None or centers_world[i - 1] is None:
+                instantaneous_speeds.append(None)
+            else:
+                dx = centers_world[i][0] - centers_world[i - 1][0]
+                dy = centers_world[i][1] - centers_world[i - 1][1]
+                dist = math.sqrt(dx * dx + dy * dy)  # displacement in cm
+                speed_cm_s = dist / dt  # cm/s
+                speed_m_s = speed_cm_s / 100.0  # m/s
+                instantaneous_speeds.append(speed_m_s)
+
+        instantaneous_acc = []
+        for i in range(len(instantaneous_speeds)):
+            if instantaneous_speeds[i] is None:
+                instantaneous_acc.append(None)
+            elif i == 0:
+                if instantaneous_speeds[i+1] is not None:
+                    a = (instantaneous_speeds[i+1] - instantaneous_speeds[i]) / dt
+                    instantaneous_acc.append(a)
+                else:
+                    instantaneous_acc.append(None)
+            elif i == len(instantaneous_speeds)-1:
+                if instantaneous_speeds[i-1] is not None:
+                    a = (instantaneous_speeds[i] - instantaneous_speeds[i-1]) / dt
+                    instantaneous_acc.append(a)
+                else:
+                    instantaneous_acc.append(None)
+            else:
+                if instantaneous_speeds[i+1] is not None and instantaneous_speeds[i-1] is not None:
+                    a = (instantaneous_speeds[i+1] - instantaneous_speeds[i-1]) / (2 * dt)
+                    instantaneous_acc.append(a)
+                else:
+                    instantaneous_acc.append(None)
+
+        valid_speeds = [s for s in instantaneous_speeds if s is not None]
+        valid_acc = [a for a in instantaneous_acc if a is not None]
+        avg_speed = np.mean(valid_speeds) if valid_speeds else 0
+        avg_acc = np.mean(valid_acc) if valid_acc else 0
+
+        result_str = (
+            f"Analyse Instantanée de {start_frame} à {end_frame}:\n"
+            f"  Vitesse moyenne: {avg_speed:.2f} m/s\n"
+            f"  Accélération moyenne: {avg_acc:.2f} m/s²"
+        )
+        messagebox.showinfo("Instantaneous Motion Analysis", result_str)
+
+        plt.figure("Instantaneous Speed")
+        plt.plot(frame_numbers[1:], instantaneous_speeds, marker='o', label="Speed (m/s)")
+        plt.xlabel("Frame Number")
+        plt.ylabel("Speed (m/s)")
+        plt.title("Instantaneous Speed vs Frame")
+        plt.legend()
+        plt.show()
+
+        plt.figure("Instantaneous Acceleration")
+        plt.plot(frame_numbers, instantaneous_acc, marker='x', color='red', label="Acceleration (m/s²)")
+        plt.xlabel("Frame Number")
+        plt.ylabel("Acceleration (m/s²)")
+        plt.title("Instantaneous Acceleration vs Frame")
+        plt.legend()
+        plt.show()

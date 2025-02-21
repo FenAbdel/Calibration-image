@@ -2,12 +2,12 @@ import tkinter as tk
 from tkinter import ttk
 from gui.calibration_frame import CalibrationFrame
 from gui.coordinates_frame import CombinedFrame
-from gui.experience import Experience
+from gui.experience2 import Experience
 
 class CalibrationApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Camera Calibration & Real-World Coordinates")
+        self.title("Projet PIC / calibration d'image")
         self.geometry("1300x750")
 
         notebook = ttk.Notebook(self)
@@ -18,9 +18,9 @@ class CalibrationApp(tk.Tk):
 
         self.experience = Experience(notebook)
         
-        notebook.add(self.calibration_frame, text="Calibration")
-        notebook.add(self.coordinates_frame, text="Coordinates")
-        notebook.add(self.experience, text="Experience")
+        notebook.add(self.calibration_frame, text="Calibration de la camera")
+        notebook.add(self.coordinates_frame, text="coordonéees réelles")
+        notebook.add(self.experience, text="Expérience")
 
 
 if __name__ == "__main__":
